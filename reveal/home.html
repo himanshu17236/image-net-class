@@ -1,0 +1,1582 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <!-- Force latest IE rendering engine or ChromeFrame if installed -->
+    <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"><![endif]-->
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta property="og:image" content="https://www.classtools.net/cubeportfolio-elements/img/rosie.jpg" />
+    <meta property="og:title" content="Image Reveal Tool" />
+    <meta property="og:description" content="Upload an image and then hide/reveal elements of your choice." />
+    <title>Image Reveal Tool</title>
+    <meta name="description" content="Upload an image and then hide/reveal elements of your choice." />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <link href="/Scripts/noty/noty.css" rel="stylesheet">
+    <script src="/Scripts/noty/noty.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="/Scripts/noty/themes/nest.css">
+    <script type="text/javascript" src="/Scripts/apprise/min.js"></script>
+    <link rel="stylesheet" type="text/css" href="/Scripts/apprise/style.css" />
+    <script type="text/javascript" src="/Scripts/fullscreen.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+
+    <script>
+        tiles = 7
+        theIm = "../_logo.png"
+        savedFile = false
+        tileStatus = ""
+        imageJustLoaded = 1
+        firstload = true
+        moused = 0
+        revealing = 0
+        curtainLoop = false;
+        whackamole = false
+
+
+        function init() {
+            $(".preloadingBlurb").remove()
+
+            x = $("#theButtons").width();
+            w = $(window).width()
+            //$("#titleBox").css("left",x+"px");
+            $("#titleBox").css("width", (w - x - 60) + "px");
+            //$("#titleBox").css("text-align","center");
+
+            $(document).tooltip();
+            if (!savedFile) {
+                $(".embedBtn").hide();
+            }
+            $(".fsBtn").click(function() {
+                toggleFullScreen()
+            })
+            $("#bigger").click(function() {
+                if (tiles < 50) {
+                    tiles++
+                };
+                sliceit()
+            });
+            $(".save").click(function() {
+                generateData()
+            });
+            $(".new").click(function() {
+                window.open("index.php")
+            });
+            $(".embedBtn").click(function() {
+                showEmbedOptions()
+            })
+            $(".question").click(function() {
+                apprise($("#introText").html())
+            })
+            $("#smaller").click(function() {
+                if (tiles > 2) {
+                    tiles--;
+                }
+                sliceit()
+            });
+            $(".reveal").click(function() {
+                if (!$(this).hasClass("grey")) {
+                    revealing = 0;
+                    curtains(1);
+                } else {
+                    notify("No tiles left to reveal!")
+                }
+            });
+            $(".cover").click(function() {
+                if (!$(this).hasClass("grey")) {
+                    revealing = 0;
+                    curtains(0);
+                    $(".play").removeClass("grey")
+                } else {
+                    notify("No tiles left to hide!")
+                }
+            });
+            $(".upload").click(function() {
+                $("#progress").show();
+                $("#fileupload").trigger("click");
+            })
+            $("body").mousedown(function() {
+                moused = 1;
+            });
+            $("body").mouseup(function() {
+                moused = 0
+            });
+            $(".play").click(function() {
+                //slowreveal()
+                if (!$(this).hasClass("grey")) {
+                    slowreveal()
+                } else {
+                    notify("No tiles left to reveal!")
+                }
+            })
+            $(".pause").click(function() {
+                clearInterval(whackamole);
+                whackamole = false;
+                $(".play, .pause").toggle();
+            })
+            $(".fsBtn").click(function() {
+                toggleFullScreen()
+            })
+        }
+
+
+
+
+        function generateData() {
+            saveit(tiles + "\n*****\n" + readTileStatus() + "\n*****\n" + theIm)
+        }
+
+        function readTileStatus() {
+            tileStatus = ""
+            var divs = $('.tile');
+            for (n = 0; n <= divs.length; n++) {
+                if ($("#tile" + n).hasClass("tileHidden")) {
+                    tileStatus += "0"
+                } else {
+                    tileStatus += "1"
+                }
+            }
+            return tileStatus
+        }
+
+
+		
+		
+		
+		
+		
+        function flipTiles() {
+            if (tileStatus != "") {
+                for (n = 0; n < tileStatus.length; n++) {
+                    if (tileStatus.charAt(n) == "1") {
+                        $(".cover").removeClass("grey")
+                        $("#tile" + n).removeClass("tileHidden");
+                        $("#tile" + n).trigger("click")
+                        $("#tile" + n + " h3").hide();
+                    }
+                }
+            }
+        }
+
+
+        function sliceit() {
+            $(".reveal, .play").removeClass("grey");
+            $(".cover").addClass("grey");
+            if (curtainLoop != false) {
+                clearInterval(curtainLoop);
+                curtainLoop = false;
+            }
+            if (whackamole != false) {
+                clearInterval(whackamole);
+                whackamole = false;
+            }
+            $(".play").show();
+            $(".pause").hide();
+            curtainLoop = false
+            whackamole = false
+            w = $(this).width()-200 //*0.8
+            h = $(this).height() - 300
+			console.log(w + " " +h);
+            ratio = w / h
+            $("#canvas").css("width", w + "px");
+            $("#canvas").css("height", h + "px");
+
+            var img = new Image();
+            img.onload = function() {
+                wi = this.width
+                hi = this.height
+                ratioi = wi / hi
+                $("#canvas").html('<p id="imgCont" align="center"><img id="theImage" align="center" src="' + theIm + '" /></p>')
+                if (hi < wi && wi < w && ratio > ratioi) //landscape, smaller than the canvas
+                {
+                    $("#theImage").css("height", h + "px");
+                }
+                if (hi < wi && wi < w && ratio < ratioi) //landscape, smaller than the canvas
+                {
+                    $("#theImage").css("width", w + "px");
+                    hi = $("#theImage").height()
+                    $("#imgCont").css("margin-top", (h - hi) * 0.5 + "px");
+                } else if (hi > wi && hi < h && ratio > ratioi) //portrait
+                {
+                    $("#theImage").css("height", h + "px");
+                }
+                $("#theImage").css("max-width", w + "px");
+                $("#theImage").css("max-height", h + "px");
+                makeTiles()
+            }
+            img.src = theIm
+        }
+
+
+        function makeTiles() {
+            tw = Math.round(w / tiles);
+            th = Math.round(h / tiles);
+            maxch = th * tiles;
+            $("#canvas").css("height", maxch + "px")
+            counter = 0
+            for (n = 0; n < tiles; n++) {
+                for (z = 0; z < tiles; z++) {
+                    counter++;
+                    cont = "<div class='tile tileHidden' id='tile" + counter + "' style='cursor:pointer;position:absolute;left:" + (z * tw) + "px;top:" + (n * th) + "px;width:" + tw + "px;height:" + th + "px;'><h3>" + counter + "</h3></div>"
+                    $("#canvas").append(cont)
+                    edge = tw + (z * tw) + 30
+                }
+            }
+
+            $(".tile").mousedown(function() {
+				var tileHidden = $('.tileHidden');				
+				$("#brickscount").html(tileHidden.length + " BRICKS REMAINING");
+                var tileId = $(this).attr('id');
+                $("#" + tileId).toggleClass("tileHidden");
+                if ($("#" + tileId).hasClass("tileHidden")) {
+                    $("#" + tileId + " h3").fadeIn();
+                    $(".reveal, .play").removeClass("grey")
+                } else {
+                    $("#" + tileId + " h3").fadeOut();
+                    $(".hide").removeClass("grey")
+                }
+
+            });
+            $(".tile").mouseenter(function(e) {
+				var tileHidden = $('.tileHidden');				
+				$("#brickscount").html(tileHidden.length + " BRICKS REMAINING");
+                if (moused) {				
+                    e.preventDefault();
+                    var tileId = $(this).attr('id');
+                    $("#" + tileId).toggleClass("tileHidden");
+                    if ($("#" + tileId).hasClass("tileHidden")) {
+                        $("#" + tileId + " h3").show()
+                    } else {
+                        $("#" + tileId + " h3").hide()
+						
+                    }
+                }
+            });
+            if (imageJustLoaded && !savedFile) {
+                notify("Click and drag on the image to hide/reveal the tiles!");
+                curtains(1)
+            }
+        }
+
+
+
+        function curtains(revealnothide) {
+            if (curtainLoop != false) {
+                clearInterval(curtainLoop);
+            }
+            if (whackamole != false) {
+                clearInterval(whackamole);
+                whackamole = false;
+            }
+            revealing = 0;
+            $(".play").show();
+            $(".pause").hide();
+			
+            var divs = $('.tile');
+			
+            var index = 0;
+            curtainLoop = setInterval(function() {
+                if (index <= divs.length) {
+                    if (revealnothide) {
+                        $("#tile" + index).removeClass("tileHidden");
+                        $("#tile" + index + " h3").hide()
+                        $(".cover").removeClass("grey")
+                    } else {
+                        //$(".cover").hide();$(".reveal").show();
+                        $("#tile" + index).addClass("tileHidden");
+                        $("#tile" + index + " h3").show()
+                        $(".reveal, .play").removeClass("grey")
+                    }
+                    index += 1;
+                } else {
+                    clearInterval(curtainLoop);
+                    curtainLoop = false;
+                    if (revealnothide) {
+                        $(".reveal, .play").addClass("grey");
+                    } else {
+                        $(".cover").addClass("grey")
+                    }
+                    if (imageJustLoaded == 1 && !savedFile) {
+                        imageJustLoaded = 0.5;
+                        curtains(0)
+                    } else if (imageJustLoaded == 0.5) {
+                        imageJustLoaded = 0;
+                        if (firstload) {
+                            firstload = false;
+                            if (!savedFile) {
+                                apprise($("#introText").html())
+                            };
+                        }
+                    }
+                }
+            }, 10);
+        }
+
+
+        function slowreveal() {
+            if (curtainLoop != false) {
+                return
+            }
+            $(".play").hide();
+            $(".pause").show();
+            $(".cover").removeClass("grey");
+            //$(".cover").hide();$(".reveal").show();
+            if (whackamole != false) {
+                clearInterval(whackamole);
+                whackamole = false;
+            }
+            if (revealing == 0) {
+                revealing = 1
+                index = 0
+                tileN = new Array()
+                for (n = 0; n <= counter; n++) {
+                    if ($("#tile" + n).hasClass("tileHidden")) {
+                        tileN.push(n)
+                    } //only add tiles not currently covered already
+                }
+                for (n = 0; n < 500; n++) {
+                    ran1 = Math.floor(Math.random() * tileN.length)
+                    ran2 = Math.floor(Math.random() * tileN.length)
+                    temp = tileN[ran1]
+                    tileN[ran1] = tileN[ran2]
+                    tileN[ran2] = temp
+                }
+            }
+            whackamole = setInterval(function() {
+                if (index + 1 <= tileN.length) {
+                    $("#tile" + tileN[index]).removeClass("tileHidden");
+                    $("#tile" + tileN[index] + " h3").hide()
+                    index++;
+                } else {
+                    clearInterval(whackamole);
+                    whackamole = false
+                    revealing = 0
+                    $(".play, .pause").toggle();
+                    notify("No tiles left to reveal!");
+                    $(".reveal, .play").addClass("grey");
+                }
+            }, 500);
+        }
+
+        function notify(mess) {
+            new Noty({
+                type: 'error',
+                layout: 'topRight',
+                theme: 'nest',
+                text: mess,
+                timeout: '8000',
+                progressBar: true,
+                closeWith: ['click'],
+                killer: true,
+            }).show();
+        }
+
+
+        function toggleFullScreen() {
+
+            if (!document.fullscreenElement && // alternative standard method
+                !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) { // current working methods
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen();
+                } else if (document.documentElement.msRequestFullscreen) {
+                    document.documentElement.msRequestFullscreen();
+                } else if (document.documentElement.mozRequestFullScreen) {
+                    document.documentElement.mozRequestFullScreen();
+                } else if (document.documentElement.webkitRequestFullscreen) {
+                    document.documentElement.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                }
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+
+
+        ideaNotes = setInterval("ideas()", 30000);
+        ideaN = 1
+
+        function ideas() {
+            notify("IDEA: " + $("#idea" + ideaN).html());
+            ideaN++;
+            if (ideaN == 5) {
+                clearInterval(ideaNotes)
+            }
+        }
+
+        function savethefave() {
+            if (authorType == "new") {
+                apprise("You must edit and save the template first before you can add it to your favourites");
+                return
+            };
+            saveFave(self.location + "", "Image Reveal") //function called from _login.inc.php.
+        }
+    </script>
+    <script>
+        createdByPremiumUser = 0;
+        authorType = "new";
+        loadedData = "";
+        theFolder = "";
+        theFile = "";
+
+
+        function saveit(dataToSave) {
+            //if(premiumUser!=1){checkifprem();return;}
+            u = premiumUserName;
+            if (u == "") {
+                u = "NONE"
+            };
+            str = dataToSave + "\n*****\n" + "premiumUserName=" + u + "\n*****\n";
+            str = str.split('"').join(""); //remove any speech marks
+            //Is it new (authorType=="new")?
+            //YES > 
+            if (authorType == "new") {
+                //Ask for a new password.
+                apprise("Provide a password so you can edit this template later:", {
+                        'input': true
+                    },
+                    function(pw) {
+                        if (pw == false) {
+                            apprise("A password must be provided");
+                            return
+                        }
+                        correctPW = pw;
+                        $.ajax({
+                            url: '/reveal/php/save.php',
+                            data: {
+                                content: str,
+                                correctPW: correctPW
+                            },
+                            dataType: 'json',
+                            type: 'post',
+                            async: false,
+                            success: function(data) {
+                                apprise("Successfully saved - your template will now be loaded at the following unique address - be sure to make a note of it!<p>https://www.classtools.net/reveal/" + data.theURL, {
+                                        'animate': true
+                                    },
+                                    function() {
+                                        window.location.href = "https://www.classtools.net/reveal/" + data.theURL //this means they are in 'viewer mode' for this template
+
+                                        //the following three lines would instead open it in 'admin' mode (but I think this is confusing).
+                                        //document.reloader.action="https://www.classtools.net/reveal/"+data.theURL;
+                                        //document.reloader.pw.value=correctPW;
+                                        //document.reloader.submit();
+                                    }
+                                );
+                            }
+                        });
+
+                    }
+                );
+            }
+
+            //NO > 
+            //	Are we dealing with an 'author viewer' already? (authorType=="administrator")
+            if (authorType == "administrator") {
+                console.log("OK");
+                //YES > Resave and give a message.	
+                $.ajax({
+                    url: '/reveal/php/save.php',
+                    data: {
+                        content: str,
+                        correctPW: correctPW,
+                        folder: "",
+                        file: "",
+                    },
+                    dataType: 'json',
+                    type: 'post',
+                    async: false,
+                    success: function(data) {
+                        apprise("Successfully resaved.<br>", {
+                            'animate': true
+                        });
+                        return true;
+                    }
+                });
+            }
+            //NO (i.e. authorType=="viewExisting") > 
+            if (authorType == "viewExisting") {
+                //Ask for the password for this template.
+                apprise("This template is locked.<br>To make edits, please provide the password.", {
+                        'input': true
+                    },
+                    function(pw) {
+                        //CheckPW using Ajax.
+                        checkpw(pw, "save");
+                    }
+                );
+            }
+        }
+
+        function checkpw(pw, func) {
+            $.ajax({
+                url: '/reveal/php/pwcheck.php',
+                data: {
+                    pw: pw,
+                    folder: "",
+                    file: "",
+                },
+                dataType: 'json',
+                type: 'post',
+                async: false,
+                success: function(data) {
+                    //If incorrect, give error message and return
+                    if (data.theMess == "failure") {
+                        apprise("Incorrect password");
+                        return false
+                    } else {
+                        correctPW = pw
+                        //If correct, give success message.
+                        apprise("Correct!", {
+                                'animate': true
+                            },
+                            function(r) {
+                                if (func == "save") {
+                                    generateData();
+                                }
+                                if (func == "edit") {
+                                    editMode();
+                                }
+                            }
+                        );
+                        //Flag up as an 'author viewer' (authorType="administrator"); pw=submittedpw
+                        authorType = "administrator";
+                        //Rerun this function and it will now work.
+                    }
+                }
+            });
+        }
+    </script>
+
+    <style>
+        .preloadingBlurb {
+            position: absolute;
+            text-align: center;
+            display: block;
+            width: 100%;
+            height: 100%;
+            z-index: 10000000;
+            top: -50px;
+            left: 0px;
+            color: black;
+            background: #ffff42;
+            /* Old browsers */
+            background: -moz-linear-gradient(top, #ffff42 51%, #e512ad 100%);
+            /* FF3.6+ */
+            background: -webkit-gradient(linear, left top, left bottom, color-stop(51%, #ffff42), color-stop(100%, #e512ad));
+            /* Chrome,Safari4+ */
+            background: -webkit-linear-gradient(top, #ffff42 51%, #e512ad 100%);
+            /* Chrome10+,Safari5.1+ */
+            background: -o-linear-gradient(top, #ffff42 51%, #e512ad 100%);
+            /* Opera 11.10+ */
+            background: -ms-linear-gradient(top, #ffff42 51%, #e512ad 100%);
+            /* IE10+ */
+            background: linear-gradient(to bottom, #ffff42 51%, #e512ad 100%);
+            /* W3C */
+            filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffff42', endColorstr='#e512ad', GradientType=0);
+            /* IE6-9 */
+            background: black;
+        }
+
+        .loader-inner {
+            bottom: 0;
+            height: 60px;
+            left: 0;
+            margin: auto;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 100px;
+        }
+
+        .loader-line-wrap {
+            animation: spin 2000ms cubic-bezier(.175, .885, .32, 1.275) infinite;
+            box-sizing: border-box;
+            height: 50px;
+            left: 0;
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            transform-origin: 50% 100%;
+            width: 100px;
+        }
+
+        .loader-line {
+            border: 4px solid transparent;
+            border-radius: 100%;
+            box-sizing: border-box;
+            height: 100px;
+            left: 0;
+            margin: 0 auto;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 100px;
+        }
+
+        .loader-line-wrap:nth-child(1) {
+            animation-delay: -50ms;
+        }
+
+        .loader-line-wrap:nth-child(2) {
+            animation-delay: -100ms;
+        }
+
+        .loader-line-wrap:nth-child(3) {
+            animation-delay: -150ms;
+        }
+
+        .loader-line-wrap:nth-child(4) {
+            animation-delay: -200ms;
+        }
+
+        .loader-line-wrap:nth-child(5) {
+            animation-delay: -250ms;
+        }
+
+        .loader-line-wrap:nth-child(1) .loader-line {
+            border-color: hsl(0, 80%, 60%);
+            height: 90px;
+            width: 90px;
+            top: 7px;
+        }
+
+        .loader-line-wrap:nth-child(2) .loader-line {
+            border-color: hsl(60, 80%, 60%);
+            height: 76px;
+            width: 76px;
+            top: 14px;
+        }
+
+        .loader-line-wrap:nth-child(3) .loader-line {
+            border-color: hsl(120, 80%, 60%);
+            height: 62px;
+            width: 62px;
+            top: 21px;
+        }
+
+        .loader-line-wrap:nth-child(4) .loader-line {
+            border-color: hsl(180, 80%, 60%);
+            height: 48px;
+            width: 48px;
+            top: 28px;
+        }
+
+        .loader-line-wrap:nth-child(5) .loader-line {
+            border-color: hsl(240, 80%, 60%);
+            height: 34px;
+            width: 34px;
+            top: 35px;
+        }
+
+        @keyframes spin {
+            0%,
+            15% {
+                transform: rotate(0);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+    <div class="preloadingBlurb">
+        <div class="loader-inner">
+            <div class="loader-line-wrap">
+                <div class="loader-line"></div>
+            </div>
+            <div class="loader-line-wrap">
+                <div class="loader-line"></div>
+            </div>
+            <div class="loader-line-wrap">
+                <div class="loader-line"></div>
+            </div>
+            <div class="loader-line-wrap">
+                <div class="loader-line"></div>
+            </div>
+            <div class="loader-line-wrap">
+                <div class="loader-line"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        setTimeout("$('.preloadingBlurb').hide()", 7000) //
+    </script>
+</head>
+
+
+<body onload="init();sliceit();setTimeout('flipTiles()',100)">
+    <script>
+        <!-- START OF EMBED OPTIONS -->
+        function showEmbedOptions() {
+            temp = self.location + "";
+            if (temp.indexOf("-") == -1) //homepage.
+            {
+                //apprise("You need to save this resource before you can get the embed code.");
+                //return;
+            }
+            apprise(document.getElementById("shareDivOptions").innerHTML);
+        }
+
+        function popup(s) {
+            $('.appriseOverlay').remove();
+            $('.appriseOuter').remove()
+            if (s == "QR") {
+                apprise("<img src='//chart.apis.google.com/chart?chs=250x250&amp;cht=qr&amp;chl=%2F%2Fwww.classtools.net%2Freveal%2F-&amp;choe=UTF-8' alt='QR' />");
+            }
+            if (s == "widget") {
+                apprise('<b>URL</b>:<br><input size="75" type="text" value="https://www.classtools.net/reveal/-" /><p><b>Embed Code</b>:<br><textarea rows="10" cols="75"><p style="position:relative;margin:auto;overflow:hidden;width:80%;padding-top:55%;"><iframe src="//www.classtools.net/reveal//-" style="position: absolute;top:0;left:0;bottom:0;right:0;width:100%;height:100%;border:0"></iframe></p></textarea>');
+            }
+        }
+    </script>
+    <div style="display:none;text-decoration:none;" id="shareDivOptions">
+        <p>
+            <a style="text-decoration:none" href="javascript:popup('widget')">URL Link / Embed Code</a>
+            <p><a style="text-decoration:none" href="javascript:popup('QR')">QR Code</a>
+                <p><a style="text-decoration:none" href="/reveal/php/download.php?fol=&amp;fil=">Download Web Shortcut</a>
+
+    </div>
+    <div id="preloadQR" style="display:none"><img src='//chart.apis.google.com/chart?chs=250x250&amp;cht=qr&amp;chl=%2F%2Fwww.classtools.net%2Fflingteacher%2F-&amp;choe=UTF-8' alt='QR' /></div>
+
+    <!-- END OF EMBED OPTIONS -->
+
+
+
+    <style>
+        #loginFields {
+            display: none;
+            padding: 20px;
+            background: yellow;
+            border: 1px black solid;
+            font-family: 'Open Sans', sans-serif;
+            border-radius: 1em;
+        }
+
+        /* rect Out */
+
+        .hvr-rect-out {
+            -webkit-border-radius: 5px;
+            -moz-border-radius: 5px;
+            border-radius: 5px;
+            display: inline-block;
+            border: 1px black solid;
+            font-size: 2em;
+            padding: 0.2em;
+            color: white !important;
+            -webkit-transform: perspective(1px) translateZ(0);
+            transform: perspective(1px) translateZ(0);
+            box-shadow: 0 0 1px rgba(0, 0, 0, 0);
+            position: relative;
+            background: CornflowerBlue;
+            -webkit-transition-property: color;
+            transition-property: color;
+            -webkit-transition-duration: 0.3s;
+            transition-duration: 0.3s;
+            margin-right: 0.5em;
+        }
+
+        .hvr-rect-out:before {
+            content: "";
+            position: absolute;
+            z-index: -1;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: BlueViolet;
+            -webkit-transform: scale(0);
+            transform: scale(0);
+            -webkit-transition-property: transform;
+            transition-property: transform;
+            -webkit-transition-duration: 0.3s;
+            transition-duration: 0.3s;
+            -webkit-transition-timing-function: ease-out;
+            transition-timing-function: ease-out;
+        }
+
+        .hvr-rect-out:hover,
+        .hvr-rect-out:focus,
+        .hvr-rect-out:active {
+            color: white !important;
+        }
+
+        .hvr-rect-out:hover:before,
+        .hvr-rect-out:focus:before,
+        .hvr-rect-out:active:before {
+            -webkit-transform: scale(1);
+            transform: scale(1);
+        }
+
+        .bg-color {
+            color: #FFF;
+            text-shadow: 1px 1px #FFF;
+            text-align: center;
+            background: rgba(255, 253, 160, 1);
+            background: -webkit-linear-gradient( left, #0F0 0%, #FF0 25%, #F00 50%, #00F 75%, #0F0 100%) repeat;
+            -webkit-background-clip: text;
+            -ms-background-clip: text;
+            -moz-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            -ms-text-fill-color: transparent;
+            -moz-text-fill-color: transparent;
+            text-fill-color: transparent;
+            -webkit-animation-name: masked-animation;
+            -webkit-animation-duration: 150s;
+            -webkit-animation-iteration-count: infinite;
+            -webkit-animation-timing-function: linear;
+        }
+
+        @-webkit-keyframes masked-animation {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: -8000px -3000px;
+            }
+        }
+
+        html,
+        body {
+            margin: 0px;
+            height: 100%;
+        }
+
+        .small {
+            font-size: x-small;
+        }
+
+        #greybg {
+            position: fixed;
+            display: none;
+            top: 0px;
+            left: 0px;
+            z-index: 99998;
+            width: 100%;
+            height: 100%;
+            opacity: 0.5;
+            background: rgba(203, 202, 202, 1.00)
+        }
+
+        #loginBox {
+            position: fixed;
+            z-index: 999999999;
+            width: 30%;
+            display: none;
+            color: black;
+            border-radius: 1em;
+            padding: 1em;
+            top: 50%;
+            left: 50%;
+            margin-right: -50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #login a:link {
+            color: white;
+            text-decoration: none;
+            font-size: small;
+        }
+
+        #login a:active {
+            color: white;
+            text-decoration: none
+        }
+
+        #login a:visited {
+            color: white;
+            text-decoration: none
+        }
+
+        #login {
+            font-family: 'Open Sans', sans-serif;
+            z-index: 9999;
+            font-size: small;
+            position: fixed;
+            top: 0px;
+            left: 0px;
+            width: 100%;
+            text-align: left;
+            margin: 0px;
+            background-color: #44619d;
+            text-decoration: none;
+            padding: 1px;
+        }
+    </style>
+
+
+
+
+
+    <script>
+        fbtemplate = 0;
+        premiumUser = 0;
+        premiumUserName = "";
+        premiumUserPW = "";
+
+        if (typeof createdByPremiumUser !== 'undefined') {
+            if (createdByPremiumUser == 1) {
+                if (typeof removAds == 'function') {
+                    removAds();
+                    $(".asd").hide();
+                    $(".adsbygoogle").remove()
+                    setTimeout('removAds();$(".asd").hide();$(".adsbygoogle").remove()', 1000) //belt and braces
+                }
+            }
+        }
+
+        function showFields() {
+            $(".appriseOuter, .appriseInner").remove()
+            t = $("#login").css("top");
+            z = $("#loginBox").css("top")
+            /*if(t=="auto"){console.log(1);$("#loginBox").css("top","-75px");}*/
+            z = t = $("#loginBox").css("top")
+            $("#login, #greybg, #loginFields, #loginBox").show()
+        }
+
+        function hideFields() {
+            $("#greybg, #loginFields, #loginBox").hide()
+        }
+
+        function showLoginDetails() {
+            document.getElementById("loginBtn").style.display = "none"
+            document.getElementById("loggedIn").innerHTML = "<a href='#'>Logged in as " + premiumUserName + "</a> | <a href='javascript:logout()'>Logout</a> | <a target='_blank' href='//www.classtools.net'>Home</a> | <a target='_blank' href='//www.classtools.net/fform.php'>Contact</a> |  <a target='_blank' href='//www.classtools.net/_SEARCH/index.php'>PowerSearch</a> | ";
+            if (typeof savethefave == 'function') {
+                document.getElementById("loggedIn").innerHTML += "<span id='favBar'><a href='javascript:savethefave()'>Add to Favourites</a> | </span>";
+            }
+            //IMPORTANT NOTE: "savethefave" belongs in the PARENT page, so can be customised in terms of specifying title / location of widget. This function in turn calls savefave() on THIS page.
+            if (typeof removAds == 'function') {
+                removAds();
+                $(".asd").hide()
+                setTimeout('removAds();$(".asd").hide()', 1000) //belt and braces
+            }
+            document.getElementById("loggedIn").innerHTML += "<a href='javascript:viewfavs()'>View Favourites</a> | ";
+            document.getElementById("loggedIn").innerHTML += '<a target="_blank" href="https://www.classtools.net/templates/_ac.php">Account Status</a> | '
+            document.getElementById("loggedIn").innerHTML += '<a target="_blank" href="https://www.classtools.net/profiles">*Personal Branding* [NEW!]</a> | '
+            document.getElementById("loggedIn").style.display = "block"
+
+            if (fbtemplate == 1) {
+                $('body').css({
+                    "padding": "20px 0 0 0"
+                });
+                $('fixeddiv').css({
+                    "top": "5px"
+                });
+                $("#loginDiv").hide();
+                $("#login").show();
+            }
+        }
+
+        mutewritten = false
+
+        function muteshow() {
+            if (typeof playSound == 'function' && mutewritten == false) {
+                mutewritten = true;
+                console.log("Mute = " + mutewritten)
+                $("#loginBtn").append(' | <a target="_blank" href="javascript:muteit()"><span id="muteTxt">Mute Sounds</span></a>')
+            }
+        }
+
+        muted = false;
+
+        function muteit() {
+            if (muted == false) {
+                muted = true;
+                document.getElementById("muteTxt").innerHTML = "Turn Sounds On";
+                alert("Sounds muted.");
+            } else {
+                muted = false;
+                document.getElementById("muteTxt").innerHTML = "Mute Sounds";
+                alert("Sounds turned on.");
+            }
+        }
+
+
+        function logout() {
+            $.ajax({
+                url: '//www.classtools.net/templates/_logout.php',
+                dataType: 'json',
+                type: 'post',
+                async: false, //wait for response before doing something
+                success: function(data) {
+                    document.getElementById("loginBtn").style.display = "block"
+                    document.getElementById("loggedIn").style.display = "none"
+                    premiumUser = 0;
+                }
+            });
+
+        }
+
+
+        function viewfavs() {
+            self.location = "//www.classtools.net/classtools_premium/user_templates.php?" + premiumUserName
+        }
+
+        function saveFave(theLoc, theTitle) {
+
+            temp = self.location + ""
+            $.ajax({
+                url: '//www.classtools.net/classtools_premium/add_template_to_user_profile.php',
+                data: {
+                    widgetLoc: theLoc,
+                    premTitle: theTitle
+                },
+                dataType: 'json',
+                type: 'post',
+                success: function(data) {
+                    alert(data.theResult)
+                }
+            });
+
+        }
+
+        showStatusAfterLogin = false;
+
+        function doLoginNow() {
+            subUsr = document.getElementById("username").value;
+            subPw = document.getElementById("thepw").value;
+            doLogin(subUsr, subPw)
+        }
+
+        function doLogin(subUsr, subPw) {
+            $.ajax({
+                url: '/templates/_login_manual.php',
+                data: {
+                    submUsr: subUsr,
+                    submPw: subPw,
+                    premCreator: ""
+                },
+                dataType: 'json',
+                type: 'post',
+                async: false, //wait for response before doing something
+                success: function(data) {
+
+                    if (data.success == 1) {
+                        premiumUser = 1
+                        premiumUserName = subUsr;
+                        premiumUserPW = subPw;
+                        showLoginDetails()
+                        hideFields();
+                        if (showStatusAfterLogin == true) {
+                            self.location = "https://www.classtools.net/templates/_ac.php"
+                        } //show account status if user is following the "your account is about to expire!" auto-email.
+                        if (data.createdByThisPremUser == 1) {
+                            createdByThisPremiumUser = 1
+                        }
+                    } else {
+                        ther = data.theResult;
+                        alert(ther)
+                        if (ther.indexOf("EXPIRED") != -1) {
+                            $("#loginResult").html("YOUR ACCOUNT HAS EXPIRED.")
+
+                            //Redirect to renew the account
+                            $("#loginExp").val(subUsr)
+                            $("#pwExp").val(subPw)
+                            //$("#ct_user").submit()
+
+                        } else if (ther.indexOf("not spotted") == -1) {
+                            $("#loginResult").html("Incorrect password.<br><a href='javascript:sendReminder()'>Send email reminder</a>?")
+                            em = data.result.split(" = ");
+                            em = em[1];
+                        } else if (ther.indexOf("not spotted") != -1) {
+                            $("#loginResult").html("Your username has not been spotted.\n*If you have just taken out a subscription, make sure you activate your account by logging into the parent site www.activehistory.co.uk* (as it states in your signup email)");
+                        }
+                    }
+
+                }
+            });
+        }
+
+        function sendReminder() {
+            subUsr = document.getElementById("username").value;
+
+            $.ajax({
+                url: '/templates/_login_sendpwreminder.php',
+                data: {
+                    submUsr: subUsr
+                },
+                dataType: 'json',
+                type: 'post',
+                async: false, //wait for response before doing something
+                success: function(data) {
+                    $("#loginResult").html("");
+                    hideFields();
+                    alert("A password reminder has been sent to the email associated with this account.\nPlease check your junk mail in case it was sent there.");
+                }
+            });
+        }
+    </script>
+
+
+
+    <div id="login">
+        <table>
+            <tr>
+                <td>
+
+                    <div id="loginBtn"><a href="//www.classtools.net" target="_blank">Classtools.net Home</a> | <span class="bg-color"><a href="javascript:showFields()">Premium Login</a></span> | <a target='_blank' href="https://www.facebook.com/Classtools">Facebook Fanpage</a>                        | <a target='_blank' href="//www.classtools.net/_SEARCH/index.php">PowerSearch</a> | <a target='_blank' href="//www.classtools.net/fform.php">Contact</a>
+                    </div>
+
+                    <div id="loggedIn">
+                    </div>
+
+
+
+
+
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div id="loginBox">
+        <div id="loginFields" style="">
+            <div>
+                <p align="center"><img src="/_logo.png" style="width:80%" />
+                    <p align="center" style="font-size:1.5em !important">PREMIUM LOGIN</p>
+
+                    <p align="center">ClassTools Premium membership gives access to all templates, no advertisements, personal branding and other benefits!</p>
+
+
+                </p>
+                <table style="text-align: center;margin:auto;" align="center" width="10%" border="0" bgcolor="yellow" cellpadding="5px">
+                    <tr>
+                        <td>Username: &nbsp;</td>
+                        <td>
+                            <input type="text" style="font-size:1.5em" name="username" id="username" value=""></td>
+                        <td>&nbsp;</td>
+                    </tr>
+                    <tr>
+                        <td>Password: &nbsp;</td>
+                        <td><input type="password" name="thepw" id="thepw" style="font-size:1.5em"></td>
+                        <td>&nbsp;</td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" class="small" style="text-align: center">
+
+                            <a href="javascript:doLoginNow()"><span class="hvr-rect-out">Submit</span></a>
+                            <a href="javascript:hideFields()"><span class="hvr-rect-out">Cancel</span></a>
+                            <!-- <input type="button" name="button" id="button" value="Submit" onClick="doLoginNow()">
+				  <input type="button" name="canc" id="canc" value="Cancel" onClick="javascript:hideFields()">-->
+                            <p id="loginResult" style="font-size:2em;padding:1em">&nbsp;</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <p>
+                            <td colspan="2" style="text-align:center">Not a member? <a target='_blank' href='//www.activehistory.co.uk/classtools_premium/index.htm'><span style="color:blue">JOIN NOW!</span></a></td>
+                            <td>&nbsp;</td>
+                    </tr>
+                </table>
+            </div>
+
+        </div>
+
+    </div>
+    <div id="greybg"></div>
+
+    <form id="ct_user" method="POST" action="/templates/_ac.php">
+        <input type="hidden" name="loginExp" id="loginExp" value="" />
+        <input type="hidden" name="pwExp" id="pwExp" value="" />
+    </form>
+
+    <script>
+        if (premiumUser == 1) {
+            showLoginDetails();
+            hideFields();
+            $("._ap_apex_ad").hide();
+        }
+        fbtemplate = 0;
+        wheel = 0;
+        theTemplate = "";
+        if (wheel == 1) {
+            //$("#loginDiv").hide();
+            $('#login').css({
+                "padding": "0px",
+                "margin": "0px",
+                "background-color": "black"
+            }); //"top":"auto","bottom":"0px",
+            //$('#loginBox').css({"top":"auto","bottom":"40px"});
+
+            $("#login").show();
+        }
+
+
+        if (typeof jQuery == 'undefined') {
+            console.log("YES");
+            var oScriptElem = document.createElement("script");
+            oScriptElem.type = "text/javascript";
+            oScriptElem.src = "/templates/jquery.js";
+            document.head.insertBefore(oScriptElem, document.head.getElementsByTagName("script")[0])
+        }
+
+
+        function checkads() {
+            if (premiumUser == 1) {
+                return
+            }
+            var adBlockEnabled = false;
+            var testAd = document.createElement('div');
+            testAd.innerHTML = '&nbsp;';
+            testAd.className = 'adsbox';
+            document.body.appendChild(testAd);
+            window.setTimeout(function() {
+                if (testAd.offsetHeight === 0) {
+                    adBlockEnabled = true;
+                }
+                testAd.remove();
+
+
+                $(".adsbygoogle").each(function(index) {
+                    var filled = $(this).attr("data-ad-status")
+                    var size = $(this).attr("style")
+                    var adId = $(this).attr("data-ad-slot")
+                    flag = 0
+                    if (adId != undefined) {
+                        if ($(this).html() == "") {
+                            flag = 1
+                        }
+                    }
+                    if (adBlockEnabled == true) {
+                        flag = 1
+                    }
+                    console.log('AdBlock Enabled? ', adBlockEnabled)
+                    console.log("CHECKING: " + adId + " / " + filled + " / " + $(this).html())
+                    if (flag == 1) {
+                        var dims = size.replace(/[^0-9]/g, '');
+                        console.log(filled + " / " + adId + " / " + size + " / " + dims)
+
+                        var theim = "";
+                        if (dims.indexOf("728") != -1) {
+                            theim = "/fallbackads/72890";
+                            got = "https://www.activehistory.co.uk/classtools_premium/index.htm?id=fallback"
+                        }
+                        if (dims == "300250" || dims == "277195") {
+                            theim = "/fallbackads/300250";
+                            got = "https://www.activehistory.co.uk/classtools_premium/index.htm"
+                        }
+                        if (dims == "300600" || dims == "3000") {
+                            var randm = Math.floor(Math.random() * 3)
+                            if (randm == 0) {
+                                theim = "/fallbackads/300600";
+                                got = "https://www.activehistory.co.uk/classtools_premium/index.htm"
+                            }
+                            if (randm == 1) {
+                                theim = "/fallbackads/300600b";
+                                got = "https://www.activehistory.co.uk"
+                            }
+                            if (randm == 2) {
+                                theim = "/fallbackads/300600c";
+                                got = "https://www.activehistory.co.uk/books.php"
+                            }
+                        }
+                        if (theim != "") {
+                            $(this).parent().before("<p id='fallbackAds' align='center'><a href='" + got + "' target='_blank'><img src='" + theim + ".jpg' style='" + size + "' /></a></p>");
+                            var adc = $(this).parent().attr("id");
+                            $("#" + adc).remove()
+                        } else {
+                            /*$.ajax({ url: "/fallbackads/log.php",
+                            	data: {adId: adId, dims: dims, templ: window.location.pathname},
+                            	type: 'get',cache: false,async:false
+                            	});*/
+                        }
+                    }
+                })
+
+
+
+            }, 2000);
+
+
+
+
+
+
+
+
+        }
+
+        setTimeout('checkads();iframer()', 2000)
+
+        function iframer() {
+            if (self !== top) {
+                // you're in an iframe
+                $("#login").html("<span align='center' style='margin:auto; display:table; '><a target='_blank' href='javascript:window.open(window.location.href)'>View Fullscreen</a></span>")
+                $("#login").css("padding", "0px");
+                $(".fsBtn").hide()
+            }
+        }
+    </script>
+
+    <!-- Go to www.addthis.com/dashboard to customize your tools -->
+    <script type="text/javascript" src="//s7.addthis.com/js/300/addthis_widget.js#pubid=ra-4f524fc67895caa0"></script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-24T8MY0VXF"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+        gtag('js', new Date());
+
+        gtag('config', 'G-24T8MY0VXF');
+
+        muteshow();
+		
+		
+		
+		function tilehide(){
+				var tileenterid = $('#bricknumbr').val();
+				var tileId = "tile" + tileenterid;
+                $("#" + tileId).toggleClass("tileHidden");
+                if ($("#" + tileId).hasClass("tileHidden")) {
+                    $("#" + tileId + " h3").fadeIn();
+                    $(".reveal, .play").removeClass("grey")
+                } else {
+                    $("#" + tileId + " h3").fadeOut();
+                    $(".hide").removeClass("grey")
+                }
+		}
+		
+		
+    </script>
+	
+	
+	
+	
+	<div class="glitter">
+	<div class="bg">
+	
+	<div class="timerdesign">
+		<div id="canvas" style="position:relative; margin:30px 0 0 0;text-align:center;overflow:hidden;top:13vh;margin-left:6vw"></div>
+
+		<div style="position:relative;width:50%;text-align:center;margin:10px auto;top:23vh;" id="theButtons">
+
+			<i title="Upload image" class="fas fa-3x fa-file-upload upload but uploadBtn"></i>
+			<i id="smaller" title="Fewer tiles" class="fas fa-3x fa-th-large but"></i>
+			<i id="bigger" title="More tiles" class="fas fa-3x fa-th but"></i>
+			<i title="Slowly reveal" class="fas fa-3x fa-play play but"></i>
+			<i title="Pause animation" style="display:none" class="fas fa-pause fa-3x pause but"></i>
+			<i title="Reveal image" class="fas fa-3x fa-eye reveal but"></i>
+			<i title="Hide image" class="fas fa-3x fa-eye-slash cover but"></i>
+			<i class="fas fa-save fa-3x but save" title="Save"></i>
+			<i class="fas fa-file fa-3x but new" title="New"></i>
+			<i class="fas fa-question fa-3x but question" title="Instructions"></i>
+			<i class="fas fa-share fa-3x but embedBtn" title="Share/Embed"></i>
+			<i class="fas fa-3x fa-expand but fsBtn" title="Toggle fullscreen"></i>
+
+		</div>
+		<div style="width:100vw;height:13vh;margin-top:15.4vh;z-index:500">
+		<div style="float:left; width:33%; height:280px;text-align:center;"><input type="text" id="bricknumbr" name="fname" placeholder="Enter Bricks No" style="margin-top:3%;width:50%;height:4vh;font-size:30px;"><input type="submit" value="SUBMIT" id="submit" onclick="tilehide()" style="width:30%;height: 3    vh; margin-bottom: 3%; background-color: #c2b062;" /></div>
+		<div style="float:left; width:33%; height:280px; z-index : -100vh"> <h1 id="clockdiv" style="color:#fff;text-align:center;line-height:1.5em; margin-top: -4%; margin-right: -3%;color: #c2b062;">START TIMER </h1> </div>
+		<div style="float:right; width:34%; height:280px;">
+			<h1 id="brickscount" style="color:#fff;text-align:center;line-height:1.5em; color: #c2b062;">49 BRICKS REMAINING </h1>
+		</div>
+			
+		</div>
+	</div>
+	<div class="flash" id="flash"></div>
+	</div>
+	</div>
+    <!-- disable autoads for premium users -->
+
+
+	<script>	
+		// 10 minutes from now
+			var time_in_minutes = 1;
+			var current_time = Date.parse(new Date());
+			var deadline = new Date(current_time + time_in_minutes*60*1000);
+
+
+			function time_remaining(endtime){
+				var t = Date.parse(endtime) - Date.parse(new Date());
+				var seconds = Math.floor( (t/1000) % 60 );
+				var minutes = Math.floor( (t/1000/60) % 60 );
+				var hours = Math.floor( (t/(1000*60*60)) % 24 );
+				var days = Math.floor( t/(1000*60*60*24) );
+				return {'total':t, 'days':days, 'hours':hours, 'minutes':minutes, 'seconds':seconds};
+			}
+
+			var timeinterval;
+			function run_clock(id,endtime){
+				var clock = document.getElementById(id);
+				function update_clock(){
+					var t = time_remaining(endtime);
+					//clock.innerHTML = 'minutes: '+t.minutes+'<br>seconds: '+t.seconds;
+				
+					$('#clockdiv').html('Timer: '+t.seconds);
+					console.log('Timer: '+t.seconds);
+					if(t.total<=0){ clearInterval(timeinterval); }
+				}
+				//update_clock(); // run function once at first to avoid delay
+				timeinterval = setInterval(update_clock,1000);
+			}
+			//run_clock('clockdiv',deadline);
+
+
+			var paused = false; // is the clock paused?
+			var time_left; // time left on the clock when paused
+
+			function pause_clock(){
+				if(!paused){
+					paused = true;
+					clearInterval(timeinterval); // stop the clock
+					time_left = time_remaining(deadline).total; // preserve remaining time
+				}
+			}
+
+			function resume_clock(){
+				if(paused){
+					paused = false;
+
+					// update the deadline to preserve the amount of time remaining
+					deadline = new Date(Date.parse(new Date()) + time_left);
+
+					// start the clock
+					run_clock('clockdiv',deadline);
+				}
+			}
+
+			// handle pause and resume button clicks
+			//document.getElementById('pause').onclick = pause_clock;
+			//document.getElementById('resume').onclick = resume_clock;
+			
+			var co = 1;
+			
+			document.addEventListener('keyup', event => {
+			  if (event.code === 'Space') {
+				if(co === 1){
+					co = 2;
+					current_time = Date.parse(new Date());
+					deadline = new Date(current_time + time_in_minutes*60*1000);
+					run_clock('clockdiv',deadline);
+					
+				}
+				else if(co === 2)
+				{	
+					co = 3;
+					pause_clock();
+				}
+				else if(co === 3)
+				{	
+					co = 2;
+					resume_clock();
+				}
+			    
+			  }
+			})
+	</script>
+	<script>
+		var l =0;
+		setInterval(function() {
+		if(l===0){
+			$("#flash").hide();
+			l =1;
+		}
+		else{
+			$("#flash").show();
+			l =0;
+		}
+			
+		}, 500);
+	</script>
+    
+
+
+
+    <div style="display:none" id="introText">
+
+        <h2 align="center"><strong>Image Revealer</strong></h2>
+        <h4 align="center">Instructions</h4>
+        <strong>Step 1. Upload an image: <i title="Upload image" class="uploadBtn fas fa-file-upload upload but"></i></strong>
+        <p>
+            <strong>Step 2. Choose more <i id="bigger" title="More tiles" class="fas fa-th but"></i> or fewer <i id="smaller" title="Fewer tiles" class="fas fa-th-large but" ></i> tiles to cover it with.</strong>
+            <p>
+                <strong>Step 3. Reveal it to students in a manner of your choice, for example: </strong><br /> - <span id="idea1">Cover particular parts of the image and challenge students to guess what's behind those tiles.</span><br /> - <span id="idea2">Allow teams to uncover a tile each time they answer a factual question; winning team is the one to identify the image first.</span><br
+                /> - <span id="idea3">Use the slow reveal <i class="fas fa-play play but nopadding"></i> function and reward the first team to guess the image.</span><br /> - <span id="idea4">Reveal the image for 5 seconds, hide it again, and ask students to describe it in as much detail as possible.</span><br
+                />
+
+
+                <p align="center"><br />
+                    <img src="../_logo.png" width="200" height="47" /></p>
+
+    </div>
+
+
+    <input style="display:none" type="file" id="imageLoader" name="imageLoader" />
+    <script>
+        $(".uploadBtn").click(function() {
+            $("#imageLoader").click()
+        })
+        document.getElementById('imageLoader').addEventListener('change', imageUploader, false);
+
+        function imageUploader(e) {
+            var img = new Image();
+            var imgrd = new FileReader();
+            imgrd.onload = function(event) {
+                var imgSize = document.getElementById("imageLoader").files[0].size;
+                img.onload = function() {
+                    theIm = img.src;
+                    ResizeImage(theIm) //RESAMPLE IMAGE - very useful!
+                    imageJustLoaded = 1;
+                    savedFile = 0
+                    sliceit()
+                } //trigger resize to scale image correctly
+                img.src = event.target.result;
+            };
+            imgrd.readAsDataURL(e.target.files[0]);
+        }
+
+
+
+        function ResizeImage(im) {
+            var img = document.createElement("img");
+            img.src = im
+            var canvas = document.createElement("canvas");
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+
+            iw = $(".theImg").width() * 1.2 //sample at a larger size so that 'full screen' can display a bigger image
+            ih = $(".theImg").height() * 1.2
+
+            var MAX_WIDTH = iw;
+            var MAX_HEIGHT = ih;
+
+            var width = img.width;
+            var height = img.height;
+
+            if (width > height) {
+                if (width > MAX_WIDTH) {
+                    height *= MAX_WIDTH / width;
+                    width = MAX_WIDTH;
+                }
+            } else {
+                if (height > MAX_HEIGHT) {
+                    width *= MAX_HEIGHT / height;
+                    height = MAX_HEIGHT;
+                }
+            }
+            canvas.width = width;
+            canvas.height = height;
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, width, height);
+
+            dataurl = canvas.toDataURL("image/jpeg");
+            //document.getElementById('output').src = dataurl;
+            theIm = img.src
+            $(".theImg").attr("src", dataurl);
+            imageStr = dataurl
+        }
+    </script>
+</body>
+
+</html>
